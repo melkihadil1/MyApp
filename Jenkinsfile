@@ -2,15 +2,15 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQubeServer'      // Nom exact du serveur SonarQube configuré dans Jenkins
-        SONAR_TOKEN = credentials('SONAR_TOKEN')  // Jenkins Credentials Secret Text
+        SONARQUBE = 'SonarQubeServer'                 // Nom exact du serveur SonarQube configuré dans Jenkins
+        SONAR_TOKEN = credentials('SONAR_TOKEN')     // Jenkins Credentials Secret Text
         IMAGE_NAME = "myapp:latest"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/melkihadil1/MyApp.git'
+                git branch: 'main', url: 'https://github.com/melkihadil1/MyApp.git'
             }
         }
 
@@ -80,4 +80,3 @@ pipeline {
         }
     }
 }
-
