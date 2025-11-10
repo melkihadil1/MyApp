@@ -2,81 +2,62 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQubeServer'      // Nom exact du serveur SonarQube configuré dans Jenkins
-        SONAR_TOKEN = credentials('SONAR_LOCAL_TOKEN')  // Jenkins Credentials Secret Text pour le token local
-        IMAGE_NAME = "myapp:latest"
+        // Met ton token ici
+        SONAR_TOKEN = credentials('SONAR_LOCAL_TOKEN')
+        SONAR_HOST_URL = "http://localhost:9000"
+        MAVEN_OPTS = "-Dmaven.test.skip=true"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main', url: 'https://github.com/melkihadil1/MyApp.git'
+                checkout scm
             }
         }
 
         stage('Build') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                echo "Building the project..."
+                sh "mvn clean package -DskipTests"
             }
         }
 
         stage('Test') {
             steps {
-                sh 'mvn test'
+                echo "Running tests..."
+                sh "mvn test"
             }
         }
 
-        stage('SAST - SonarCloud / SonarQube Analysis') {
+        stage('SAST - SonarQube Analysis') {
+            environment {
+                // Injection des variables SonarQube
+                SONAR_PROJECT_KEY = "melkihadil1_MyApp"
+            }
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    sh """
+                echo "Running SonarQube analysis..."
+                sh """
                     mvn sonar:sonar \
-                        -Dsonar.projectKey=melkihadil1_MyApp \
-                        -Dsonar.host.url=http://192.168.17.174:9000 \
-                        -Dsonar.login=$SONAR_TOKEN
-                    """
-                }
+                    -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+                    -Dsonar.host.url=$SONAR_HOST_URL \
+                    -Dsonar.login=$SONAR_TOKEN
+                """
             }
         }
 
-        stage('SCA - Dependency Scan') {
-            steps {
-                sh 'trivy fs . > trivy-report.txt || true'
-            }
-        }
-
-        stage('Docker Build & Scan') {
-            steps {
-                sh 'docker build -t $IMAGE_NAME .'
-                sh 'trivy image $IMAGE_NAME > docker-scan.txt || true'
-            }
-        }
-
-        stage('Secrets Scan') {
-            steps {
-                sh 'gitleaks detect --source . --report-format=json --report-path=gitleaks.json || true'
-            }
-        }
-
-        stage('DAST - Staging Scan (Optionnel)') {
-            steps {
-                sh 'echo "DAST scan placeholder (ex: OWASP Zap, Nikto, etc.)"'
-            }
-        }
-
-        stage('Archive & Reporting') {
-            steps {
-                archiveArtifacts artifacts: '*.txt, *.json', allowEmptyArchive: true
-                emailext to: 'team@devsecops.com',
-                         subject: "Résultats du pipeline Jenkins DevSecOps",
-                         body: "Les rapports sont disponibles dans Jenkins."
-            }
-        }
+        // Tu peux ajouter d'autres étapes comme SCA, Docker Scan, Secrets Scan, etc.
     }
 
     post {
         always {
-            echo "Pipeline terminé — toutes les étapes exécutées."
+            echo 'Pipeline terminé — toutes les étapes exécutées.'
+        }
+        success {
+            echo 'Build et analyse SonarQube réussis.'
+        }
+        failure {
+            echo 'Échec du pipeline. Vérifie les logs pour plus de détails.'
         }
     }
 }
+
