@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQubeServer'                 // Nom exact du serveur SonarQube configuré dans Jenkins
-        SONAR_TOKEN = credentials('SONAR_TOKEN')     // Jenkins Credentials Secret Text
+        SONARQUBE = 'SonarQubeServer'      // Nom exact du serveur SonarQube configuré dans Jenkins
+        SONAR_TOKEN = credentials('SONAR_LOCAL_TOKEN')  // Jenkins Credentials Secret Text pour le token local
         IMAGE_NAME = "myapp:latest"
     }
 
@@ -26,15 +26,15 @@ pipeline {
             }
         }
 
-        stage('SAST - SonarCloud Analysis') {
+        stage('SAST - SonarCloud / SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQubeServer') {
-                    sh '''
+                    sh """
                     mvn sonar:sonar \
                         -Dsonar.projectKey=melkihadil1_MyApp \
-                        -Dsonar.organization=melkihadil1 \
+                        -Dsonar.host.url=http://192.168.17.174:9000 \
                         -Dsonar.login=$SONAR_TOKEN
-                    '''
+                    """
                 }
             }
         }
