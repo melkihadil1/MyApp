@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('SONAR_TOKEN')  // ton secret Jenkins
+        SONARQUBE = 'SonarQubeServer'      // Nom exact du serveur SonarQube configuré dans Jenkins
+        SONAR_TOKEN = credentials('SONAR_TOKEN')  // Jenkins Credentials Secret Text
         IMAGE_NAME = "myapp:latest"
     }
 
@@ -15,32 +16,68 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'echo "Build placeholder: mvn clean package ou docker build"'
+                sh 'mvn clean package -DskipTests'
             }
         }
 
-        stage('SAST - SonarQube Analysis') {
+        stage('Test') {
             steps {
-                sh 'echo "SonarQube scan placeholder"'
+                sh 'mvn test'
+            }
+        }
+
+        stage('SAST - SonarCloud Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQubeServer') {
+                    sh '''
+                    mvn sonar:sonar \
+                        -Dsonar.projectKey=melkihadil1_MyApp \
+                        -Dsonar.organization=melkihadil1 \
+                        -Dsonar.login=$SONAR_TOKEN
+                    '''
+                }
             }
         }
 
         stage('SCA - Dependency Scan') {
             steps {
-                sh 'echo "Trivy scan placeholder"'
+                sh 'trivy fs . > trivy-report.txt || true'
+            }
+        }
+
+        stage('Docker Build & Scan') {
+            steps {
+                sh 'docker build -t $IMAGE_NAME .'
+                sh 'trivy image $IMAGE_NAME > docker-scan.txt || true'
             }
         }
 
         stage('Secrets Scan') {
             steps {
-                sh 'echo "Gitleaks scan placeholder"'
+                sh 'gitleaks detect --source . --report-format=json --report-path=gitleaks.json || true'
             }
         }
 
-        stage('Reporting') {
+        stage('DAST - Staging Scan (Optionnel)') {
+            steps {
+                sh 'echo "DAST scan placeholder (ex: OWASP Zap, Nikto, etc.)"'
+            }
+        }
+
+        stage('Archive & Reporting') {
             steps {
                 archiveArtifacts artifacts: '*.txt, *.json', allowEmptyArchive: true
+                emailext to: 'team@devsecops.com',
+                         subject: "Résultats du pipeline Jenkins DevSecOps",
+                         body: "Les rapports sont disponibles dans Jenkins."
             }
         }
     }
+
+    post {
+        always {
+            echo "Pipeline terminé — toutes les étapes exécutées."
+        }
+    }
 }
+
